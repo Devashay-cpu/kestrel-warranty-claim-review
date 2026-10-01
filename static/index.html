@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel – warranty claim review</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2433; --mute:#5d6678; --line:#d9dde5; --accent:#2b5fd9; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:22px; margin:0 0 4px; } .sub { color:var(--mute); margin:0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px 16px; }
+  label { display:block; font-weight:600; font-size:13px; margin-bottom:4px; }
+  label small { font-weight:400; color:var(--mute); }
+  input,select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; background:#fff; }
+  .row { display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  button { padding:9px 18px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--accent); } button:disabled { opacity:.6; cursor:wait; }
+  .badge { display:inline-block; padding:3px 12px; border-radius:999px; font-weight:700; text-transform:uppercase; font-size:13px; }
+  .high { background:#fde3e1; color:#a1241b; } .medium { background:#fff0cf; color:#8a5a00; } .low { background:#dff3e4; color:#1f6b36; }
+  .score { font-size:34px; font-weight:700; margin-right:12px; }
+  ul { margin:8px 0 0; padding-left:20px; } li { margin:4px 0; }
+  .err { border-color:#e3a19b; background:#fff5f4; } .warn { color:#8a5a00; font-size:13px; }
+  .disclaimer { font-size:13px; color:var(--mute); border-left:3px solid var(--line); padding-left:10px; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Warranty claim review</h1>
+  <p class="sub">Enter one claim and check how high it should sit in the investigation queue.</p>
+
+  <form id="f" class="card" autocomplete="off">
+    <div class="grid">
+      <div><label for="claim_id">Claim ID <small>(optional)</small></label><input id="claim_id" placeholder="e.g. WC711348"></div>
+      <div><label for="submitted_at">Submitted at</label><input id="submitted_at" type="datetime-local" required></div>
+      <div><label for="partner_id">Outlet (partner) ID</label><input id="partner_id" required placeholder="e.g. SP3118" maxlength="32"></div>
+      <div><label for="sku">Product code</label>
+        <select id="sku" hidden></select><input id="sku_text" placeholder="e.g. KH-AF-01"></div>
+      <div><label for="claim_amount_inr">Claim amount (Rs)</label><input id="claim_amount_inr" type="number" min="1" step="any" required></div>
+      <div><label for="days_since_purchase">Days since purchase</label><input id="days_since_purchase" type="number" min="0" step="1" required></div>
+      <div><label for="customer_prior_claims">Customer's earlier claims</label><input id="customer_prior_claims" type="number" min="0" step="1" required></div>
+      <div><label for="photo_attached">Photo attached?</label><select id="photo_attached"><option>Y</option><option>N</option></select></div>
+      <div><label for="partner_inspected">Inspected by outlet?</label><select id="partner_inspected"><option>Y</option><option>N</option></select></div>
+      <div><label for="inspector_note">Inspector note <small>(optional)</small></label><input id="inspector_note" list="notes" maxlength="500"><datalist id="notes"></datalist></div>
+    </div>
+    <div class="row">
+      <button type="submit" id="go">Check Claim</button>
+      <button type="button" class="ghost" id="example">Fill example</button>
+      <span id="status" class="sub" style="margin:0"></span>
+    </div>
+  </form>
+
+  <section id="out" class="card" hidden aria-live="polite">
+    <div><span class="score" id="score"></span><span class="badge" id="risk"></span></div>
+    <p style="margin:12px 0 0"><strong>Why this score</strong></p>
+    <ul id="reasons"></ul>
+    <p class="warn" id="warnings"></p>
+  </section>
+
+  <section id="errbox" class="card err" hidden aria-live="polite">
+    <strong id="errtitle"></strong><ul id="errlist"></ul>
+  </section>
+
+  <p class="disclaimer">This is a review-priority tool. A high score is not a fraud verdict. High score means review first, not automatic rejection.
+    Risk levels: high ≥ <span id="th_h">0.13</span> (roughly the top 5% of claims), medium ≥ <span id="th_m">0.04</span>, otherwise low.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ["claim_id","submitted_at","partner_id","claim_amount_inr","days_since_purchase","customer_prior_claims","photo_attached","partner_inspected","inspector_note"];
+let example = null;
+
+function nowLocal() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,16); }
+function skuValue() { return ($("sku").hidden ? $("sku_text").value : $("sku").value).trim(); }
+function setSku(v) { if ($("sku").hidden) $("sku_text").value = v; else $("sku").value = v; }
+
+async function loadMeta() {
+  try {
+    const r = await fetch("/meta"); const m = await r.json(); if (!r.ok) throw new Error(m.detail || r.status);
+    example = m.example;
+    const sel = $("sku"); sel.innerHTML = "";
+    m.skus.forEach(s => { const o = document.createElement("option"); o.value = o.textContent = s; sel.appendChild(o); });
+    sel.hidden = false; $("sku_text").hidden = true;
+    m.allowed_inspector_notes.forEach(n => { const o = document.createElement("option"); o.value = n; $("notes").appendChild(o); });
+    $("th_h").textContent = m.risk_thresholds.high; $("th_m").textContent = m.risk_thresholds.medium;
+  } catch (e) { $("status").textContent = "Could not load product list; type the product code instead."; }
+}
+
+function fillExample() {
+  const ex = example || {partner_id:"SP9001", sku:"KH-AF-01", claim_amount_inr:1500, days_since_purchase:200, photo_attached:"N", partner_inspected:"N", customer_prior_claims:2};
+  FIELDS.forEach(f => { if ($(f)) $(f).value = ex[f] == null ? "" : ex[f]; });
+  $("submitted_at").value = nowLocal(); $("claim_id").value = ""; setSku(ex.sku);
+}
+
+function show(el, on) { el.hidden = !on; }
+function renderErrors(title, items) {
+  show($("out"), false); show($("errbox"), true);
+  $("errtitle").textContent = title; const ul = $("errlist"); ul.innerHTML = "";
+  items.forEach(t => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+}
+
+$("f").addEventListener("submit", async ev => {
+  ev.preventDefault(); show($("errbox"), false);
+  const body = {
+    submitted_at: $("submitted_at").value, partner_id: $("partner_id").value.trim(), sku: skuValue(),
+    claim_amount_inr: $("claim_amount_inr").value === "" ? null : Number($("claim_amount_inr").value),
+    days_since_purchase: $("days_since_purchase").value === "" ? null : Number($("days_since_purchase").value),
+    customer_prior_claims: $("customer_prior_claims").value === "" ? null : Number($("customer_prior_claims").value),
+    photo_attached: $("photo_attached").value, partner_inspected: $("partner_inspected").value,
+  };
+  if ($("claim_id").value.trim()) body.claim_id = $("claim_id").value.trim();
+  if ($("inspector_note").value.trim()) body.inspector_note = $("inspector_note").value.trim();
+  $("go").disabled = true; $("status").textContent = "Checking…";
+  try {
+    const r = await fetch("/predict", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    let d = {}; try { d = await r.json(); } catch (_) {}
+    if (r.ok) {
+      $("score").textContent = Number(d.fraud_score).toFixed(3);
+      const b = $("risk"); b.textContent = d.risk_level + " risk"; b.className = "badge " + d.risk_level;
+      const ul = $("reasons"); ul.innerHTML = "";
+      d.reasons.slice(0, 3).forEach(t => { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+      $("warnings").textContent = (d.warnings || []).join(" ");
+      show($("out"), true);
+    } else {
+      const items = (d.errors || []).map(e => e.field + ": " + e.problem);
+      renderErrors(d.detail || ("Request failed (" + r.status + ")"), items);
+    }
+  } catch (e) {
+    renderErrors("Could not reach the service. Is it running?", []);
+  } finally { $("go").disabled = false; $("status").textContent = ""; }
+});
+$("example").addEventListener("click", fillExample);
+$("submitted_at").value = nowLocal();
+loadMeta();
+</script>
+</body>
+</html>

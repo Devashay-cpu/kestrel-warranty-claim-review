@@ -1,0 +1,4 @@
+-r requirements.txt
+# only needed to run the HTTP tests (fastapi.testclient needs httpx); pytest is optional, `python -m unittest` also works
+httpx>=0.25
+pytest>=8

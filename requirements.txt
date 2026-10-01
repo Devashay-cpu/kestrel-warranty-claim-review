@@ -1,0 +1,11 @@
+# Runtime dependencies. Tested with Python 3.12.3 (use Python 3.12; 3.11 should work but was NOT tested).
+# The saved model (artifacts/phase3/final_model.joblib) was written with scikit-learn 1.8.0 and pandas 3.x pickles,
+# so these five are pinned to the exact versions it was loaded with. Do not loosen them.
+pandas==3.0.2
+numpy==2.4.4
+scipy==1.17.1
+scikit-learn==1.8.0
+joblib==1.5.3
+# Web service (Phase 4). Ranges, not exact pins: these could not be installed or version-tested in the offline build sandbox.
+fastapi>=0.110,<1.0
+uvicorn>=0.27

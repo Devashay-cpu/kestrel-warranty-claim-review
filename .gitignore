@@ -1,0 +1,10 @@
+# Kestrel data is client-confidential (ops-policy s10): never commit data or derived row-level files
+data/
+artifacts/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+.ipynb_checkpoints/
