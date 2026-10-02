@@ -24,6 +24,7 @@ Ques8 What did you use AI for?
 Ans I used AI coding assistants and chat models mainly for debugging, implementation review, test interpretation, and exploring alternative approaches. They helped identify errors and speed up repetitive coding. I validated the resulting code myself through automated tests and validation runs. I discarded approaches that did not improve the evidence or were too complex for the available data. No paid API calls were used by the deployed service.
 
 Then Google Drive recording link later.
+https://www.loom.com/share/e7c08e487fec44c2a033a2f591c75c00
 
 Ques9 Someone picks this up Monday — three things?
 Ans Three things for Monday
