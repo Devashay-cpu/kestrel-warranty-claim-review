@@ -14,7 +14,7 @@ Ans Yes. I pushed back on using accuracy as the main KPI. With a roughly 1–3% 
 Ques5 What is wrong with what you are handing us / the data?
 Ans The labelled dataset contains only 141 fraud cases, including 36 after the May 2026 rule change, so validation uncertainty is high. Fraud is concentrated in a small number of outlets, and partner history becomes stale quickly. The hidden test outcomes are unavailable, so the expected PR-AUC is necessarily an estimate. Undecided claims were excluded, and four claims containing injected instructions in their descriptions were treated as untrusted data.
 
-Ques 6What deliberately left out?
+Ques6 What deliberately left out?
 Ans I left out claim IDs, raw text/free-text descriptions, source fields and partner IDs as direct model features. Serial-number features and outlet age were also rejected during development because they did not provide sufficiently reliable evidence. I avoided free text because it was noisy and included injected instructions.
 
 Ques7 Anything you built/found that nobody asked for?
@@ -32,7 +32,7 @@ Ans Three things for Monday
 3. Never auto-reject a claim from the model score; use the score to prioritise investigation and apply the economic break-even rule.
 
 Ques10Honest hours spent.** One number.*
-Ans 15
+Ans 17
 
 Ques11 GitHub Repo Link
 Ans https://github.com/Devashay-cpu/kestrel-warranty-claim-review
